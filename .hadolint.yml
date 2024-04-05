@@ -1,0 +1,10 @@
+# # Hadolint config file
+# # https://hadolint.github.io/hadolint/
+
+# Failure mode
+failure-threshold: none
+no-fail: false
+
+# Output format
+format: tty
+no-color: true
