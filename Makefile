@@ -23,6 +23,7 @@ help:
 	@echo "  lint-all"
 	@echo "  redbean-build"
 	@echo "  redbean-alpine"
+	@echo "  redbean-scratch"
 
 
 # # # Default goal
@@ -48,6 +49,11 @@ redbean-alpine: redbean-build
 		--file=$(CURDIR)/Dockerfile.redbean-alpine \
 		--build-arg=ALPINE_TAG=$(ALPINE_TAG)
 
+redbean-scratch: redbean-build
+	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
+		--tag=redbean:$(REDBEAN_VERSION)-scratch \
+		--file=$(CURDIR)/Dockerfile.redbean-scratch
+
 
 # # # Lint the Dockerfile
 
@@ -63,8 +69,8 @@ else
 		--network=none \
 		--volume="$(CURDIR)/.hadolint.yml:/.hadolint.yml:ro" \
 		hadolint/hadolint < $(FILE)
+	$(info No errors found in '$(FILE)')
 endif
-	
 
 .PHONY: lint-all lint-all-%
 lint-all: $(foreach FILE, $(wildcard $(CURDIR)/Dockerfile*), lint-all-$(notdir $(FILE)))
