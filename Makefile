@@ -22,6 +22,7 @@ help:
 	@echo "  lint-dockerfile FILE"
 	@echo "  lint-all"
 	@echo "  redbean-build"
+	@echo "  redbean-alpine"
 
 
 # # # Default goal
@@ -40,6 +41,12 @@ redbean-build:
 		--file=$(CURDIR)/Dockerfile.redbean-build \
 		--build-arg=DEBIAN_TAG=$(DEBIAN_TAG) \
 		--build-arg=MODE=$(MODE)
+
+redbean-alpine: redbean-build
+	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
+		--tag=redbean:$(REDBEAN_VERSION)-alpine \
+		--file=$(CURDIR)/Dockerfile.redbean-alpine \
+		--build-arg=ALPINE_TAG=$(ALPINE_TAG)
 
 
 # # # Lint the Dockerfile
