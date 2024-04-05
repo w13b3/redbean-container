@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1
+# # FROM args
+ARG DEBIAN_TAG=bookworm-20240311-slim
+
+# # # build stage
+FROM docker.io/library/debian:${DEBIAN_TAG} AS build
+
+# # environment variables
+ENV LANG=C.UTF-8
+
+# # build args
+ARG COMMIT_SHA
+ARG MODE=optlinux
+ARG BIN_DIR=/usr/local/bin
+ARG REPO_DIR=/cosmopolitan
+
+# # set which command RUN should use
+SHELL [ "/bin/sh", "-c" ]
+
+# # download dependencies
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt <<EOT
+# # add ca-certificates
+    apt-get update -y
+    apt-get upgrade -y
+    apt-get install -y --no-install-recommends \
+        ca-certificates=20230311 \
+        curl=7.88.1-10+deb12u5 \
+        git=1:2.39.2-1.1 \
+        unzip=6.0-28
+EOT
+
+WORKDIR ${REPO_DIR}
+
+# # clone and cache the cosmopolitan repo
+RUN --mount=type=cache,target=/tmp/git_cache/cosmopolitan <<EOT
+    git clone --depth 1 https://github.com/jart/cosmopolitan.git /tmp/git_cache/cosmopolitan
+    cp -rf /tmp/git_cache/cosmopolitan/. ${REPO_DIR}
+EOT
+
+# # if SHA is not latest, reset to given commit SHA
+RUN --mount=type=cache,target=/tmp/git_cache/cosmopolitan <<EOT
+    # # if $COMMIT_SHA is set and is not a zero-length string
+    if [ -n "${COMMIT_SHA}" ]; then
+        git fetch --unshallow
+        git reset --hard ${COMMIT_SHA}
+    fi
+EOT
+
+# build redbean
+RUN --mount=type=cache,target=/tmp/git_cache/cosmopolitan <<EOT
+    # # build redbean using the $REPO_DIR/Makefile
+    build/bootstrap/make --jobs --output-sync MODE=${MODE} o/${MODE}/tool/net/redbean
+    # # rename redbean.com to redbean
+    mv -f o/${MODE}/tool/net/redbean.com o/${MODE}/tool/net/redbean
+    # # copy redbean to $BIN_DIR
+    cp -f o/${MODE}/tool/net/redbean ${BIN_DIR}/redbean
+EOT

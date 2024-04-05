@@ -3,6 +3,15 @@
 SHELL := /usr/bin/env sh
 
 
+# # # Default variables
+MODE ?= optlinux
+REDBEAN_VERSION ?= latest
+
+IMAGE_TAG ?= latest
+DEBIAN_TAG ?= bookworm-20240311-slim
+ALPINE_TAG ?= 3.19.1
+
+
 # # # Help
 
 .PHONY: help
@@ -12,6 +21,7 @@ help:
 	@echo "  all"
 	@echo "  lint-dockerfile FILE"
 	@echo "  lint-all"
+	@echo "  redbean-build"
 
 
 # # # Default goal
@@ -19,6 +29,17 @@ help:
 .PHONY: all
 all: lint-all
 	$(info Done running 'make all')
+
+
+# # # Build
+
+.PHONY: redbean-build
+redbean-build:
+	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
+		--tag=$@:$(IMAGE_TAG) \
+		--file=$(CURDIR)/Dockerfile.redbean-build \
+		--build-arg=DEBIAN_TAG=$(DEBIAN_TAG) \
+		--build-arg=MODE=$(MODE)
 
 
 # # # Lint the Dockerfile
