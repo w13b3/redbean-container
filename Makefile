@@ -4,12 +4,15 @@ SHELL := /usr/bin/env sh
 
 
 # # # Default variables
+
 MODE ?= optlinux
 REDBEAN_VERSION ?= latest
 
-IMAGE_TAG ?= latest
-DEBIAN_TAG ?= bookworm-20240311-slim
+BUILD_TAG ?= latest
+BUILD_DEBIAN_TAG ?= bookworm-20240311-slim
 ALPINE_TAG ?= 3.19.1
+
+GIT_REPO_OWNER ?= none
 
 
 # # # Help
@@ -21,6 +24,7 @@ help:
 	@echo "  all"
 	@echo "  lint-dockerfile FILE"
 	@echo "  lint-all"
+	@echo "  redbean"
 	@echo "  redbean-build"
 	@echo "  redbean-alpine"
 	@echo "  redbean-scratch"
@@ -29,30 +33,44 @@ help:
 # # # Default goal
 
 .PHONY: all
-all: lint-all
+all: redbean
 	$(info Done running 'make all')
 
 
 # # # Build
 
+.PHONY: redbean
+redbean: redbean-scratch
+	$(info Done running 'make redbean')
+
 .PHONY: redbean-build
 redbean-build:
 	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
-		--tag=$@:$(IMAGE_TAG) \
+		--load \
 		--file=$(CURDIR)/Dockerfile.redbean-build \
-		--build-arg=DEBIAN_TAG=$(DEBIAN_TAG) \
-		--build-arg=MODE=$(MODE)
+		--build-arg=MODE=$(MODE) \
+		--build-arg=BUILD_DEBIAN_TAG=$(BUILD_DEBIAN_TAG) \
+		--tag=redbean-build:$(BUILD_TAG) \
+		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean-build:$(BUILD_TAG)
 
 redbean-alpine: redbean-build
 	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
+		--load \
+		--file=$(CURDIR)/Dockerfile.redbean-alpine \	
+		--build-arg=ALPINE_TAG=$(ALPINE_TAG) \
+		--build-arg=GIT_REPO_OWNER=$(GIT_REPO_OWNER) \
+		--build-arg=BUILD_TAG=$(BUILD_TAG) \
 		--tag=redbean:$(REDBEAN_VERSION)-alpine \
-		--file=$(CURDIR)/Dockerfile.redbean-alpine \
-		--build-arg=ALPINE_TAG=$(ALPINE_TAG)
+		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(REDBEAN_VERSION)-alpine
 
 redbean-scratch: redbean-build
 	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
-		--tag=redbean:$(REDBEAN_VERSION)-scratch \
-		--file=$(CURDIR)/Dockerfile.redbean-scratch
+		--load \
+		--file=$(CURDIR)/Dockerfile.redbean-scratch \
+		--build-arg=GIT_REPO_OWNER=$(GIT_REPO_OWNER) \
+		--build-arg=BUILD_TAG=$(BUILD_TAG) \
+		--tag=redbean:$(REDBEAN_VERSION) \
+		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(REDBEAN_VERSION)
 
 
 # # # Lint the Dockerfile

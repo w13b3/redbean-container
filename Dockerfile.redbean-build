@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # # FROM args
-ARG DEBIAN_TAG=bookworm-20240311-slim
+ARG BUILD_DEBIAN_TAG=bookworm-20240311-slim
 
 # # # build stage
-FROM docker.io/library/debian:${DEBIAN_TAG} AS build
+FROM docker.io/library/debian:${BUILD_DEBIAN_TAG} AS build
 
 # # environment variables
 ENV LANG=C.UTF-8
