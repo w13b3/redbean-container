@@ -29,13 +29,17 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
         unzip=6.0-28
 EOT
 
-WORKDIR ${REPO_DIR}
-
 # # clone and cache the cosmopolitan repo
+WORKDIR /tmp/git_cache/cosmopolitan
 RUN --mount=type=cache,target=/tmp/git_cache/cosmopolitan <<EOT
     git clone --depth 1 https://github.com/jart/cosmopolitan.git /tmp/git_cache/cosmopolitan
+    git clean -fd
+    git pull
     cp -rf /tmp/git_cache/cosmopolitan/. ${REPO_DIR}
 EOT
+
+# # set working directory
+WORKDIR ${REPO_DIR}
 
 # # if SHA is not latest, reset to given commit SHA
 RUN --mount=type=cache,target=/tmp/git_cache/cosmopolitan <<EOT
@@ -55,3 +59,24 @@ RUN --mount=type=cache,target=/tmp/git_cache/cosmopolitan <<EOT
     # # copy redbean to $BIN_DIR
     cp -f o/${MODE}/tool/net/redbean ${BIN_DIR}/redbean
 EOT
+
+# # normalize the binary to ELF
+RUN --network=none <<EOT
+    redbean --assimilate
+EOT
+
+# # basically no-op image
+FROM scratch AS final
+
+# # final args
+ARG BIN_DIR=/usr/local/bin
+
+# # environment variables
+ENV LANG=C.UTF-8
+ENV PATH=${BIN_DIR}
+
+# # only copy redbean
+COPY --from=build ${BIN_DIR}/redbean ${BIN_DIR}/redbean
+
+# # start redbean when running the container
+ENTRYPOINT [ "redbean" ]
