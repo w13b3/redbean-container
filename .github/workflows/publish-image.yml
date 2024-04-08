@@ -1,52 +1,82 @@
 name: Publish image
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-
+  workflow_dispatch:
+    inputs:
+      MODE:
+        description: 'Build mode'
+        required: true
+        type: choice
+        default: 'optlinux'
+        options: 
+          - 'optlinux'
+          - 'tinylinux'
+          - 'opt'
+          - 'tiny'
+          - 'asan'
+          - 'rel'
+          - 'dbg'
+          - 'static'
+        
 env:
+  MODE: optlinux
+  COSMOPOLITAN_REPO: https://github.com/jart/cosmopolitan
+  GHCR_IO: ghcr.io/${{ github.repository_owner }}
+  IMAGE_NAME: redbean
+  IMAGE_DOCKERFILE: Dockerfile.redbean
   BUILD_DEBIAN_TAG: bookworm-20240311-slim
-  BUILD_TAG: ghcr.io/${{ github.repository_owner }}/redbean-build:${{ github.sha }}
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
     if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
     steps:
+      - name: Variables
+        run: |
+          echo "RFC3339=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          echo "REDBEAN_VERSION=$(curl --silent --show-error --fail http://redbean.dev/latest.txt)" >> $GITHUB_ENV
+          COSMOPOLITAN_SHA=$(git ls-remote --quiet --head ${{ env.COSMOPOLITAN_REPO }}.git master | cut -f 1)
+          echo "COSMOPOLITAN_SHA=${COSMOPOLITAN_SHA}" >> $GITHUB_ENV
+          echo "COSMOPOLITAN_SHORT_SHA=$(echo "${COSMOPOLITAN_SHA}" | cut -c 1-6)" >> $GITHUB_ENV
+
       - name: Checkout
-        uses: actions/checkout@v4.1.2
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.2.0
+        uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3.1.0
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
         with:
           registry: ghcr.io
           username: ${{ secrets.GH_USR }}
           password: ${{ secrets.GH_PAT }}
           logout: true
-
-      - name: Build and export build image
-        uses: docker/build-push-action@v5.3.0
-        with:
-          load: true
-          push: false
-          context: .
-          file: ./Dockerfile.redbean-build
-          build-args: BUILD_DEBIAN_TAG=${{ env.BUILD_DEBIAN_TAG }}
-          tags: |
-            ${{ env.BUILD_TAG }}
       
-      - name: Build and push final image
-        uses: docker/build-push-action@v5.3.0
+      - name: Build and export redbean-scratch image
+        uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
         with:
           push: true
           context: .
-          file: ./Dockerfile.redbean-scratch
+          file: ./${{ env.IMAGE_DOCKERFILE }}
+          # https://specs.opencontainers.org/image-spec/annotations/
+          labels: |
+            org.opencontainers.image.title=redbean
+            org.opencontainers.image.description=The little web server that could!
+            org.opencontainers.image.documentation=https://redbean.dev/
+            org.opencontainers.image.licenses=ISC,MIT,BSD-2,BSD-3,zlib
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/${{ env.IMAGE_DOCKERFILE }}
+            org.opencontainers.image.created=${{ env.RFC3339 }}
+            org.opencontainers.image.authors=${{ github.repository_owner }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.COSMOPOLITAN_SHA }}
+            org.opencontainers.image.vendor=Cosmopolitan ${{ env.COSMOPOLITAN_REPO }}
+            org.opencontainers.image.version=${{ env.REDBEAN_VERSION }}  
+            org.opencontainers.image.ref.name=redbean-${{ env.REDBEAN_VERSION }} 
+            org.opencontainers.image.base.name=scratch
+            dev.redbean.build_mode=${{ github.event.inputs.MODE }}
           build-args: |
-            GIT_REPO_OWNER=${{ github.repository_owner }}
-            BUILD_TAG=${{ github.sha }}
+            MODE=${{ github.event.inputs.MODE }}
+            BUILD_DEBIAN_TAG=${{ env.BUILD_DEBIAN_TAG }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/redbean:latest
+            ${{ env.GHCR_IO }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.MODE }}
+            ${{ env.GHCR_IO }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.MODE }}-${{ env.COSMOPOLITAN_SHORT_SHA }}
