@@ -5,6 +5,17 @@ SHELL := /usr/bin/env sh
 
 # # # Default variables
 
+COSMOPOLITAN_REPO = https://github.com/jart/cosmopolitan
+# # if COSMOPOLITAN_SHA is given, the Dockerfile will reset the git repo to that commit
+COSMOPOLITAN_SHA ?=
+ifeq ($(COSMOPOLITAN_SHA),)
+# # COSMOPOLITAN_SHA is not given
+COSMOPOLITAN_SHORT_SHA = $(shell git ls-remote --quiet --head $(COSMOPOLITAN_REPO).git master | cut -c 1-6)
+else
+# # COSMOPOLITAN_SHA is given
+COSMOPOLITAN_SHORT_SHA = $(shell echo $(COSMOPOLITAN_SHA) | cut -c 1-6)
+endif
+
 MODE ?= optlinux
 REDBEAN_VERSION ?= latest
 
@@ -25,15 +36,13 @@ help:
 	@echo "  lint-dockerfile FILE"
 	@echo "  lint-all"
 	@echo "  redbean"
-	@echo "  redbean-build"
-	@echo "  redbean-alpine"
 	@echo "  redbean-scratch"
 
 
 # # # Default goal
 
 .PHONY: all
-all: redbean
+all: redbean-scratch
 	$(info Done running 'make all')
 
 
@@ -43,42 +52,27 @@ all: redbean
 redbean: redbean-scratch
 	$(info Done running 'make redbean')
 
-.PHONY: redbean-build
-redbean-build:
+# # Make an image only containing redbean
+.PHONY: redbean-scratch
+redbean-scratch:
 	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
 		--load \
-		--file=$(CURDIR)/Dockerfile.redbean-build \
-		--build-arg=MODE=$(MODE) \
+		--file=$(CURDIR)/Dockerfile.redbean \
 		--build-arg=BUILD_DEBIAN_TAG=$(BUILD_DEBIAN_TAG) \
-		--tag=redbean-build:$(BUILD_TAG) \
-		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean-build:$(BUILD_TAG)
-
-redbean-alpine: redbean-build
-	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
-		--load \
-		--file=$(CURDIR)/Dockerfile.redbean-alpine \	
-		--build-arg=ALPINE_TAG=$(ALPINE_TAG) \
-		--build-arg=GIT_REPO_OWNER=$(GIT_REPO_OWNER) \
-		--build-arg=BUILD_TAG=$(BUILD_TAG) \
-		--tag=redbean:$(REDBEAN_VERSION)-alpine \
-		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(REDBEAN_VERSION)-alpine
-
-redbean-scratch: redbean-build
-	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
-		--load \
-		--file=$(CURDIR)/Dockerfile.redbean-scratch \
-		--build-arg=GIT_REPO_OWNER=$(GIT_REPO_OWNER) \
-		--build-arg=BUILD_TAG=$(BUILD_TAG) \
-		--tag=redbean:$(REDBEAN_VERSION) \
-		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(REDBEAN_VERSION)
+		--build-arg=MODE=$(MODE) \
+		--build-arg=COSMOPOLITAN_SHA=$(COSMOPOLITAN_SHA) \
+		--tag=redbean:$(MODE) \
+		--tag=redbean:$(MODE)-$(COSMOPOLITAN_SHORT_SHA) \
+		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(MODE) \
+		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(MODE)-$(COSMOPOLITAN_SHORT_SHA)
 
 
 # # # Lint the Dockerfile
 
+# # Usage: make lint-dockerfile FILE=./Dockerfile
 .PHONY: lint-dockerfile
 lint-dockerfile:
 ifeq ($(origin FILE), undefined)
-	@# Usage: make lint-dockerfile FILE=./Dockerfile
 	$(error variable FILE is not set)
 else
 	docker run \
