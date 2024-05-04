@@ -34,15 +34,15 @@ WORKDIR /cosmopolitan
 RUN <<EOT
     # # if $REPO_SHA is set and is not a zero-length string
     if [ -n "${REPO_SHA}" ]; then
-        git fetch --unshallow
-        git reset --hard ${REPO_SHA}
+        git fetch --depth=1 https://github.com/jart/cosmopolitan.git "${REPO_SHA}"
+        git reset --hard "${REPO_SHA}"
     fi
 EOT
 
 # # change the Makefile to only download cosmocc.zip
 # # this is a hacky-way to run the line `DOWNLOAD := $(shell build/download-cosmocc.sh $(COSMOCC) 3.x.x <SHA>)`
 # # unzip is needed to unpack the downloaded cosmocc.zip to .cosmocc
-RUN <<EOT
+RUN --mount=type=cache,target=/cosmopolitan/.cosmocc <<EOT
     cp -f Makefile Makefile.tmp
     # append `dl-cosmocc:` to the end of the Makefile.tmp file
     echo "dl-cosmocc:" >> Makefile.tmp

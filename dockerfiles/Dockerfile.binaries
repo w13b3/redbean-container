@@ -12,10 +12,17 @@ ENV LANG=C.UTF-8
 WORKDIR /cosmopolitan
 
 # # build the binaries
-RUN <<EOT 
+RUN --mount=type=cache,target=/cosmopolitan/.cosmocc <<EOT 
     # # build redbean
-    make -j -O MODE=${MODE} o/${MODE}/tool/net/redbean
-    # # rename redbean.com to redbean
+    make -i -j -O MODE=${MODE} o/${MODE}/tool/net/redbean
+    # Cosmopolitan stopped requiring the .com suffix around release v3.3.3
+    # when the .com suffix is required make fails
+    # if redbean is not created, try to create redbean.com
+    [ -f o/${MODE}/tool/net/redbean ] || make -i -j -O MODE=${MODE} o/${MODE}/tool/net/redbean.com
+    # rename redbean.com to redbean
     mv -f o/${MODE}/tool/net/redbean.com o/${MODE}/tool/net/redbean || true
+    # test if redbean binary is created
+    [ -f o/${MODE}/tool/net/redbean ]
+    # copy redbean to /usr/local/bin
     cp -f o/${MODE}/tool/net/redbean /usr/local/bin/redbean
 EOT
