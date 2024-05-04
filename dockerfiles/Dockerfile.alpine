@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+# hadolint global ignore=DL3006
+FROM binaries AS bin
+FROM alpine AS build
+
+# # environment variables
+ENV LANG=C.UTF-8
+
+# # copy files
+COPY --from=bin /usr/local/bin/assimilate /usr/local/bin/assimilate
+COPY --from=bin /usr/local/bin/redbean /usr/local/bin/redbean
+
+# # assimilate redbean
+RUN /usr/local/bin/assimilate -f /usr/local/bin/redbean
+
+# # minimal image
+FROM alpine AS final
+
+# # base args
+ARG BIN_DIR=/usr/local/bin
+
+# # environment variables
+ENV LANG=C.UTF-8
+ENV PATH="${BIN_DIR}:${PATH}"
+
+# # only copy redbean
+COPY --link --from=build /usr/local/bin/redbean ${BIN_DIR}/redbean
+
+# # set redbean as the entrypoint
+ENTRYPOINT [ "redbean" ]

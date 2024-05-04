@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+# hadolint global ignore=DL3006
+FROM debian AS repo
+
+# # repo args
+ARG REPO_SHA
+
+# # environment variables
+ENV LANG=C.UTF-8
+
+# set which command RUN should use
+SHELL [ "/bin/sh", "-xec" ]
+
+# # download dependencies
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt <<EOT
+# # add ca-certificates
+    apt-get update -y
+    apt-get install -y --no-install-recommends \
+        ca-certificates=20230311 \
+        curl=7.88.1-10+deb12u5 \
+        git=1:2.39.2-1.1 \
+        unzip=6.0-28 \
+        make=4.3-4.1
+EOT
+
+# # download the other dependencies
+ADD --chmod=776 https://cosmo.zip/pub/cosmos/bin/assimilate /usr/local/bin/assimilate
+ADD --keep-git-dir=true https://github.com/jart/cosmopolitan.git /cosmopolitan
+
+# # change working directory
+WORKDIR /cosmopolitan
+
+# # if SHA is not latest, reset to given commit SHA
+RUN <<EOT
+    # # if $REPO_SHA is set and is not a zero-length string
+    if [ -n "${REPO_SHA}" ]; then
+        git fetch --unshallow
+        git reset --hard ${REPO_SHA}
+    fi
+EOT
+
+# # change the Makefile to only download cosmocc.zip
+# # this is a hacky-way to run the line `DOWNLOAD := $(shell build/download-cosmocc.sh $(COSMOCC) 3.x.x <SHA>)`
+# # unzip is needed to unpack the downloaded cosmocc.zip to .cosmocc
+RUN <<EOT
+    cp -f Makefile Makefile.tmp
+    # append `dl-cosmocc:` to the end of the Makefile.tmp file
+    echo "dl-cosmocc:" >> Makefile.tmp
+    # run the Makefile.tmp to download the cosmocc.zip
+    make --file Makefile.tmp dl-cosmocc
+    # remove the created file
+    rm -f Makefile.tmp
+EOT

@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+# hadolint global ignore=DL3006
+FROM binaries AS bin
+
+# # assimilate redbean
+RUN /usr/local/bin/assimilate -f /usr/local/bin/redbean
+
+# # basically no-op image
+FROM scratch AS final
+
+# # final args
+ARG BIN_DIR=/usr/local/bin
+
+# # environment variables
+ENV LANG=C.UTF-8
+ENV PATH=${BIN_DIR}
+
+# # only copy redbean
+COPY --link --from=bin /usr/local/bin/redbean ${BIN_DIR}/redbean
+USER 10000:10001
+
+# # start redbean when running the container
+ENTRYPOINT [ "redbean" ]

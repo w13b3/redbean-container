@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+# hadolint global ignore=DL3006
+FROM repo
+
+# # build args
+ARG MODE=optlinux
+
+# # environment variables
+ENV LANG=C.UTF-8
+
+# # change working directory
+WORKDIR /cosmopolitan
+
+# # build the binaries
+RUN <<EOT 
+    # # build redbean
+    make -j -O MODE=${MODE} o/${MODE}/tool/net/redbean
+    # # rename redbean.com to redbean
+    mv -f o/${MODE}/tool/net/redbean.com o/${MODE}/tool/net/redbean || true
+    cp -f o/${MODE}/tool/net/redbean /usr/local/bin/redbean
+EOT
