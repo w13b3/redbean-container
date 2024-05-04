@@ -1,90 +1,60 @@
 # # Makefile
 .DEFAULT_GOAL := all
-SHELL := /usr/bin/env sh
+SHELL := /bin/sh
 
 
 # # # Default variables
 
-COSMOPOLITAN_REPO = https://github.com/jart/cosmopolitan
-# # if COSMOPOLITAN_SHA is given, the Dockerfile will reset the git repo to that commit
-COSMOPOLITAN_SHA ?=
-ifeq ($(COSMOPOLITAN_SHA),)
-# # COSMOPOLITAN_SHA is not given
-COSMOPOLITAN_SHORT_SHA = $(shell git ls-remote --quiet --head $(COSMOPOLITAN_REPO).git master | cut -c 1-6)
-else
-# # COSMOPOLITAN_SHA is given
-COSMOPOLITAN_SHORT_SHA = $(shell echo $(COSMOPOLITAN_SHA) | cut -c 1-6)
-endif
-
-MODE ?= optlinux
-REDBEAN_VERSION ?= latest
-
-BUILD_TAG ?= latest
-BUILD_DEBIAN_TAG ?= bookworm-20240311-slim
-ALPINE_TAG ?= 3.19.1
-
-GIT_REPO_OWNER ?= none
+# # if REPO_SHA is given, the Dockerfile will reset the git repo to that commit
+REPO_SHA ?=
+DEFAULT_MODE ?= optlinux
+BUILD_MODES ?= optlinux tinylinux asan rel
+REGISTRY_OWNER ?= none
 
 
 # # # Help
 
 .PHONY: help
 help:
-	@echo "Usage: make [TARGET:-all]"
-	@echo "TARGET:"
+	@echo "Usage: make [TARGET: all]"
+	@echo ""
+	@echo "TARGET:     [OPTION: default]"
+	@echo "  help"
 	@echo "  all"
-	@echo "  lint-dockerfile FILE"
-	@echo "  lint-all"
-	@echo "  redbean"
-	@echo "  redbean-scratch"
+	@echo "  build     [MODE: $(DEFAULT_MODE)]"
+	@echo "  build-all [BUILD_MODES: $(BUILD_MODES)]"
 
 
 # # # Default goal
 
 .PHONY: all
-all: redbean-scratch
+all: build
 	$(info Done running 'make all')
 
 
 # # # Build
 
-.PHONY: redbean
-redbean: redbean-scratch
-	$(info Done running 'make redbean')
-
-# # Make an image only containing redbean
-.PHONY: redbean-scratch
-redbean-scratch:
-	DOCKER_BUILDKIT=1 docker buildx build $(CURDIR) \
-		--load \
-		--file=$(CURDIR)/Dockerfile.redbean \
-		--build-arg=BUILD_DEBIAN_TAG=$(BUILD_DEBIAN_TAG) \
-		--build-arg=MODE=$(MODE) \
-		--build-arg=COSMOPOLITAN_SHA=$(COSMOPOLITAN_SHA) \
-		--tag=redbean:$(MODE) \
-		--tag=redbean:$(MODE)-$(COSMOPOLITAN_SHORT_SHA) \
-		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(MODE) \
-		--tag=ghcr.io/$(GIT_REPO_OWNER)/redbean:$(MODE)-$(COSMOPOLITAN_SHORT_SHA)
-
-
-# # # Lint the Dockerfile
-
-# # Usage: make lint-dockerfile FILE=./Dockerfile
-.PHONY: lint-dockerfile
-lint-dockerfile:
-ifeq ($(origin FILE), undefined)
-	$(error variable FILE is not set)
+# # Build redbean in the given MODE (default: $(DEFAULT_MODE))
+.PHONY: build
+build:
+ifeq ($(origin MODE), undefined)
+	$(warning variable MODE is not set. MODE set to $(DEFAULT_MODE))
+	$(MAKE) --directory=$(CURDIR) build MODE=$(DEFAULT_MODE)
 else
-	docker run \
-		--rm \
-		--interactive \
-		--network=none \
-		--volume="$(CURDIR)/.hadolint.yml:/.hadolint.yml:ro" \
-		hadolint/hadolint < $(FILE)
-	$(info No errors found in '$(FILE)')
+	$(info Building in '$(MODE)' mode)
+	DOCKER_BUILDKIT=1 MODE=$(MODE) REPO_SHA=$(REPO_SHA) \
+		docker buildx bake --load --progress=plain scratch
 endif
 
-.PHONY: lint-all lint-all-%
-lint-all: $(foreach FILE, $(wildcard $(CURDIR)/Dockerfile*), lint-all-$(notdir $(FILE)))
-lint-all-%:
-	$(MAKE) lint-dockerfile FILE=$(CURDIR)/$*
+# # Build redbean in all the BUILD_MODES
+.PHONY: build-all build-all-%
+build-all: $(foreach M, $(BUILD_MODES), build-all-$(M))
+build-all-%:
+	$(MAKE) --directory=$(CURDIR) build MODE=$*
+
+
+# # Downloads a copy of the repo in a debian container
+.PHONY: build-repo
+build-repo:
+	DOCKER_BUILDKIT=1 REPO_SHA=$(REPO_SHA) \
+		docker buildx bake --load --progress=plain repo-local
