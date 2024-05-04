@@ -9,7 +9,7 @@ SHELL := /bin/sh
 REPO_SHA ?=
 DEFAULT_MODE ?= optlinux
 BUILD_MODES ?= optlinux tinylinux asan rel
-REGISTRY_OWNER ?= none
+REGISTRY_OWNER ?= local
 
 
 # # # Help
