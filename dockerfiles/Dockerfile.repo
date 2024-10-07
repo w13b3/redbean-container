@@ -8,19 +8,17 @@ ARG REPO_SHA
 # # environment variables
 ENV LANG=C.UTF-8
 
-# set which command RUN should use
+# # set which command RUN should use
 SHELL [ "/bin/sh", "-xec" ]
+
+# # copy the list of needed APT packages
+COPY --from=packages apt.txt apt.txt
 
 # # download dependencies
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt <<EOT
-# # add ca-certificates
     apt-get update -y
-    apt-get install -y --no-install-recommends \
-        ca-certificates=20230311 \
-        curl=7.88.1-10+deb12u5 \
-        git=1:2.39.2-1.1 \
-        unzip=6.0-28 \
-        make=4.3-4.1
+    # # use awk to read apt.txt, remove comments and output the packages onto one line
+    apt-get install -y --no-install-recommends $(awk '!/^.*?#/ {printf "%s ", $0}' apt.txt)
 EOT
 
 # # download the other dependencies

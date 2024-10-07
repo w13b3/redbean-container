@@ -82,6 +82,7 @@ target "repo" {
   context    = "."
   dockerfile = "dockerfiles/Dockerfile.repo"
   contexts = {
+    packages = "packages"  # used to copy ./packages/apt.txt into the image
     debian = "docker-image://${DEBIAN}"
   }
   args = {

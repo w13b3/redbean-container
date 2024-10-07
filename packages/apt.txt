@@ -1,0 +1,35 @@
+# created using
+#   apt-get install --no-install-recommends --dry-run ca-certificates curl git make unzip | awk '/^Inst/ {printf "%s=%s\n", $2, $3}' | sed 's/(//' > packages.txt
+# installed using
+#   apt-get install --no-install-recommends $(awk '!/^.*?#/ {printf "%s ", $0}' packages.txt)
+
+perl-modules-5.36=5.36.0-7+deb12u1
+libgdbm6=1.23-3
+libgdbm-compat4=1.23-3
+libperl5.36=5.36.0-7+deb12u1
+perl=5.36.0-7+deb12u1
+libssl3=3.0.14-1~deb12u2
+openssl=3.0.14-1~deb12u2
+ca-certificates=20230311
+libbrotli1=1.0.9-2+b6
+libkrb5support0=1.20.1-2+deb12u2
+libk5crypto3=1.20.1-2+deb12u2
+libkeyutils1=1.6.3-2
+libkrb5-3=1.20.1-2+deb12u2
+libgssapi-krb5-2=1.20.1-2+deb12u2
+libsasl2-modules-db=2.1.28+dfsg-10
+libsasl2-2=2.1.28+dfsg-10
+libldap-2.5-0=2.5.13+dfsg-5
+libnghttp2-14=1.52.0-1+deb12u1
+libpsl5=0.21.2-1
+librtmp1=2.4+20151223.gitfa8646d.1-2+b2
+libssh2-1=1.10.0-3+b1
+libcurl4=7.88.1-10+deb12u7
+curl=7.88.1-10+deb12u7
+libcurl3-gnutls=7.88.1-10+deb12u7
+libexpat1=2.5.0-1+deb12u1
+liberror-perl=0.17029-2
+git-man=1:2.39.5-0+deb12u1
+git=1:2.39.5-0+deb12u1
+make=4.3-4.1
+unzip=6.0-28
