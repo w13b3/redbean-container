@@ -31,11 +31,11 @@ variable "MODE" {
 }
 variable "ALPINE" {
   # alpine:3.19.1
-  default = "alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+  default = "alpine@sha256:21dc6063fd678b478f57c0e13f47560d0ea4eeba26dfc947b2a4f81f686b9f45"
 }
 variable "DEBIAN" {
   # debian:bookworm-20240408-slim
-  default = "debian@sha256:3d5df92588469a4c503adbead0e4129ef3f88e223954011c2169073897547cac"
+  default = "debian@sha256:1537a6a1cbc4b4fd401da800ee9480207e7dc1f23560c21259f681db56768f63"
 }
 
 
