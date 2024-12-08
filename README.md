@@ -61,7 +61,7 @@ The [Cosmopolitan] repository offers other tools that can be built.
 Using this project, another binary can be built by setting the `TARGET_PATH` variable.
 
 ```shell
-TARGET_PATH=TARGET_PATH=/tool/hello/hello docker buildx bake https://github.com/w13b3/redbean-container.git
+TARGET_PATH=/tool/hello/hello docker buildx bake https://github.com/w13b3/redbean-container.git
 ```
 With a successful build the image with the tag `hello:optlinux` is created.  
 The filename of the path given to `TARGET_PATH` becomes the name of the image.  
