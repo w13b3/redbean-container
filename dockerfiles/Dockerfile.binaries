@@ -4,6 +4,8 @@ FROM repo
 
 # # build args
 ARG MODE=optlinux
+ARG TARGET_NAME=redbean
+ARG TARGET_PATH=/tool/net/redbean
 
 # # environment variables
 ENV LANG=C.UTF-8
@@ -12,17 +14,19 @@ ENV LANG=C.UTF-8
 WORKDIR /cosmopolitan
 
 # # build the binaries
-RUN --mount=type=cache,target=/cosmopolitan/.cosmocc <<EOT 
-    # # build redbean
-    make -i -j -O MODE=${MODE} o/${MODE}/tool/net/redbean
+RUN --mount=type=cache,target=/cosmopolitan/.cosmocc <<EOT
+    # create the output path and trim the extra slashes
+    OUTPUT_PATH="$(echo o/${MODE}/${TARGET_PATH} | tr -s '/')"
+    # build binary
+    make -i -j -O MODE=${MODE} ${OUTPUT_PATH}
     # Cosmopolitan stopped requiring the .com suffix around release v3.3.3
     # when the .com suffix is required make fails
-    # if redbean is not created, try to create redbean.com
-    [ -f o/${MODE}/tool/net/redbean ] || make -i -j -O MODE=${MODE} o/${MODE}/tool/net/redbean.com
-    # rename redbean.com to redbean
-    mv -f o/${MODE}/tool/net/redbean.com o/${MODE}/tool/net/redbean || true
-    # test if redbean binary is created
-    [ -f o/${MODE}/tool/net/redbean ]
-    # copy redbean to /usr/local/bin
-    cp -f o/${MODE}/tool/net/redbean /usr/local/bin/redbean
+    # if the 'binary' is not created, try to create 'binary'.com
+    [ -f "${OUTPUT_PATH}" ] || make -i -j -O MODE=${MODE} ${OUTPUT_PATH}.com
+    # rename 'binary'.com to binary
+    mv -f "${OUTPUT_PATH}.com" "${OUTPUT_PATH}" || true
+    # test if binary is created
+    [ -f "${OUTPUT_PATH}" ]
+    # copy binary to /usr/local/bin
+    cp -f "${OUTPUT_PATH}" "/usr/local/bin/${TARGET_NAME}"
 EOT

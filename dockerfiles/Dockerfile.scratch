@@ -2,22 +2,26 @@
 # hadolint global ignore=DL3006
 FROM binaries AS bin
 
-# # assimilate redbean
-RUN /usr/local/bin/assimilate -f /usr/local/bin/redbean
+# # bin args
+ARG TARGET_NAME=redbean
+
+# # assimilate the binary
+RUN /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
 
 # # basically no-op image
 FROM scratch AS final
 
 # # final args
 ARG BIN_DIR=/usr/local/bin
+ARG TARGET_NAME=redbean
 
 # # environment variables
 ENV LANG=C.UTF-8
 ENV PATH=${BIN_DIR}
 
-# # only copy redbean
-COPY --link --from=bin /usr/local/bin/redbean ${BIN_DIR}/redbean
+# # only copy binary
+COPY --link --from=bin /usr/local/bin/${TARGET_NAME} ${BIN_DIR}/ENTRYPOINT
 USER 10000:10001
 
-# # start redbean when running the container
-ENTRYPOINT [ "redbean" ]
+# # start the binary when running the container
+ENTRYPOINT [ "ENTRYPOINT" ]

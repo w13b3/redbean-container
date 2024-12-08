@@ -26,6 +26,12 @@ variable "SHORT_SHA" {
 variable "BIN_DIR" {
   default = "/usr/local/bin"
 }
+variable "TARGET_PATH" {
+    default = "/tool/net/redbean"
+}
+variable "TARGET_NAME" {
+    default = "${filename(TARGET_PATH)}"
+}
 variable "MODE" {
   default = "optlinux"
 }
@@ -39,16 +45,6 @@ variable "DEBIAN" {
 }
 
 
-# # image metadata
-variable "LABELS" {
-  default = {
-    "dev.redbean.mode"     = "${MODE}",
-    "dev.redbean.licenses" = "ISC,MIT,BSD-2,BSD-3,zlib;https://redbean.dev/#legal",
-    "com.github.cosmopolitan.rev" = equal("", REPO_SHA) ? timestamp() : "${REPO_SHA}"
-  }
-}
-
-
 # # # user-defined functions
 
 function "shortSHA" {
@@ -56,9 +52,13 @@ function "shortSHA" {
   params = [given]
   result = substr(given, 0, 6)
 }
+function "filename" {
+  # extracts the final component of a given file path
+  params = [given]
+  result = element(split("/", given), length(split("/", given)) - 1)
+}
 
-
-# # # inhertable targets
+# # # inheritable targets
 
 target "_annotations" {
   # https://specs.opencontainers.org/image-spec/annotations/
@@ -68,9 +68,9 @@ target "_annotations" {
     "org.opencontainers.image.url=http://github.com/${REGISTRY_OWNER}",
     "org.opencontainers.image.revision=${REPO_SHA}",
     "org.opencontainers.image.vendor=Cosmopolitan https://github.com/jart/cosmopolitan",
-    "org.opencontainers.image.licenses=ISC,MIT,BSD-2,BSD-3,zlib",
-    "org.opencontainers.image.title=redbean",
-    "org.opencontainers.image.description=single-file distributable web server",
+    "org.opencontainers.image.licenses=ISC",
+    "org.opencontainers.image.title=${TARGET_NAME}",
+    "org.opencontainers.image.description=build-once run-anywhere",
   ]
 }
 
@@ -103,7 +103,9 @@ target "binaries" {
     repo = "target:repo"
   }
   args = {
-    MODE = "${MODE}"  # default "optlinux"
+    MODE = "${MODE}",  # default "optlinux"
+    TARGET_NAME = "${TARGET_NAME}",  # default redbean
+    TARGET_PATH = "${TARGET_PATH}",  # default "/tool/net/redbean"
   }
 }
 
@@ -124,19 +126,17 @@ target "scratch" {
     binaries = "target:binaries"
   }
   args = {
-    BIN_DIR = "${BIN_DIR}"  # default "/usr/local/bin"
+    BIN_DIR = "${BIN_DIR}",  # default "/usr/local/bin"
+    TARGET_NAME = "${TARGET_NAME}",  # default redbean
   }
   tags = concat([
-    "redbean:${MODE}",
-    "ghcr.io/${REGISTRY_OWNER}/redbean:${MODE}",
+    "${TARGET_NAME}:${MODE}",
+    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}",
     # if available; also add tags with short sha 
     ], equal("", REPO_SHA) ? [] : [
-    "redbean:${MODE}-${SHORT_SHA}",
-    "ghcr.io/${REGISTRY_OWNER}/redbean:${MODE}-${SHORT_SHA}",
+    "${TARGET_NAME}:${MODE}-${SHORT_SHA}",
+    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-${SHORT_SHA}",
   ])
-  labels = merge(LABELS, {
-    "container.base.image" : "scratch"
-  })
 }
 
 target "alpine" {
@@ -149,17 +149,15 @@ target "alpine" {
     binaries = "target:binaries"
   }
   args = {
-    BIN_DIR = "${BIN_DIR}"  # default "/usr/local/bin"
+    BIN_DIR = "${BIN_DIR}",  # default "/usr/local/bin"
+    TARGET_NAME = "${TARGET_NAME}",  # default redbean
   }
   tags = concat([
-    "redbean:${MODE}-alpine",
-    "ghcr.io/${REGISTRY_OWNER}/redbean:${MODE}-alpine",
+    "${TARGET_NAME}:${MODE}-alpine",
+    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine",
     # if available; also add tags with short sha 
     ], equal("", REPO_SHA) ? [] : [
-    "redbean:${MODE}-alpine-${SHORT_SHA}",
-    "ghcr.io/${REGISTRY_OWNER}/redbean:${MODE}-alpine-${SHORT_SHA}",
+    "${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
+    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
   ])
-  labels = merge(LABELS, {
-    "container.base.image" : "${ALPINE}"
-  })
 }

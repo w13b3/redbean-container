@@ -3,28 +3,33 @@
 FROM binaries AS bin
 FROM alpine AS build
 
+# # build args
+ARG TARGET_NAME=redbean
+
 # # environment variables
 ENV LANG=C.UTF-8
 
 # # copy files
 COPY --from=bin /usr/local/bin/assimilate /usr/local/bin/assimilate
-COPY --from=bin /usr/local/bin/redbean /usr/local/bin/redbean
+COPY --from=bin /usr/local/bin/${TARGET_NAME} /usr/local/bin/${TARGET_NAME}
 
 # # assimilate redbean
-RUN /usr/local/bin/assimilate -f /usr/local/bin/redbean
+RUN /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
 
 # # minimal image
 FROM alpine AS final
 
-# # base args
+# # final args
 ARG BIN_DIR=/usr/local/bin
+ARG TARGET_NAME=redbean
 
 # # environment variables
 ENV LANG=C.UTF-8
 ENV PATH="${BIN_DIR}:${PATH}"
 
-# # only copy redbean
-COPY --link --from=build /usr/local/bin/redbean ${BIN_DIR}/redbean
+# # only copy the binary
+COPY --link --from=build /usr/local/bin/${TARGET_NAME} ${BIN_DIR}/${TARGET_NAME}
+RUN ln -s "${BIN_DIR}/${TARGET_NAME}" "${BIN_DIR}/ENTRYPOINT"
 
-# # set redbean as the entrypoint
-ENTRYPOINT [ "redbean" ]
+# # start the binary when running the container
+ENTRYPOINT [ "ENTRYPOINT" ]
