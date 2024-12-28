@@ -36,12 +36,12 @@ variable "MODE" {
   default = "optlinux"
 }
 variable "ALPINE" {
-  # alpine:3.19.1
+  # alpine:3.21.0
   default = "alpine@sha256:21dc6063fd678b478f57c0e13f47560d0ea4eeba26dfc947b2a4f81f686b9f45"
 }
 variable "DEBIAN" {
-  # debian:bookworm-20240408-slim
-  default = "debian@sha256:1537a6a1cbc4b4fd401da800ee9480207e7dc1f23560c21259f681db56768f63"
+  # debian:bookworm-20241223-slim
+  default = "debian@sha256:b877a1a3fdf02469440f1768cf69c9771338a875b7add5e80c45b756c92ac20a"
 }
 
 
@@ -80,7 +80,7 @@ target "_annotations" {
 
 target "repo" {
   context    = "."
-  dockerfile = "dockerfiles/Dockerfile.repo"
+  dockerfile = "cwd://dockerfiles/Dockerfile.repo"
   contexts = {
     debian = "docker-image://${DEBIAN}"
   }
@@ -98,7 +98,7 @@ target "repo-local" {
 
 target "compile" {
   context    = "."
-  dockerfile = "dockerfiles/Dockerfile.compile"
+  dockerfile = "cwd://dockerfiles/Dockerfile.compile"
   contexts = {
     repo = "target:repo"
   }
@@ -121,7 +121,7 @@ target "compile-local" {
 target "scratch" {
   inherits   = ["_annotations"]
   context    = "."
-  dockerfile = "dockerfiles/Dockerfile.scratch"
+  dockerfile = "cwd://dockerfiles/Dockerfile.scratch"
   contexts = {
     compile = "target:compile"
   }
@@ -142,7 +142,7 @@ target "scratch" {
 target "alpine" {
   inherits   = ["_annotations"]
   context    = "."
-  dockerfile = "dockerfiles/Dockerfile.alpine"
+  dockerfile = "cwd://dockerfiles/Dockerfile.alpine"
   contexts = {
     // alpine:3.19.1
     alpine   = "docker-image://${ALPINE}"
@@ -160,4 +160,32 @@ target "alpine" {
     "${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
     "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
   ])
+}
+
+# # output files
+
+target "repo-output" {
+  contexts = {
+    context = "target:repo"
+  }
+  dockerfile-inline = <<EOT
+    FROM scratch
+    COPY --from=context /cosmopolitan /
+  EOT
+  output = ["type=local,dest=./output/cosmopolitan"]
+}
+
+target "binary-output" {
+  contexts = {
+    context = "target:compile"
+  }
+  args = {
+    TARGET_NAME = "${TARGET_NAME}",  # default redbean
+  }
+  dockerfile-inline = <<EOT
+    FROM scratch
+    ARG TARGET_NAME
+    COPY --from=context "/usr/local/bin/${TARGET_NAME}" /
+  EOT
+  output = ["type=local,dest=./output"]
 }
