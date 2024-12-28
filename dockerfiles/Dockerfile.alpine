@@ -1,35 +1,35 @@
 # syntax=docker/dockerfile:1
 # hadolint global ignore=DL3006
-FROM compile AS bin
 FROM alpine AS build
 
 # # build args
 ARG TARGET_NAME=redbean
+ARG BIN_DIR=/usr/local/bin
 
 # # environment variables
 ENV LANG=C.UTF-8
 
-# # copy files
-COPY --from=bin /usr/local/bin/assimilate /usr/local/bin/assimilate
-COPY --from=bin /usr/local/bin/${TARGET_NAME} /usr/local/bin/${TARGET_NAME}
+# # copy files from the compile context
+COPY --from=compile /usr/local/bin/ /usr/local/bin/
 
 # # assimilate redbean
-RUN /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
+RUN <<EOT
+    /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
+    rm -f /usr/local/bin/assimilate
+    ln -s "${BIN_DIR}/${TARGET_NAME}" "${BIN_DIR}/ENTRYPOINT"
+EOT
 
 # # minimal image
 FROM alpine AS final
 
 # # final args
 ARG BIN_DIR=/usr/local/bin
-ARG TARGET_NAME=redbean
 
 # # environment variables
-ENV LANG=C.UTF-8
 ENV PATH="${BIN_DIR}:${PATH}"
 
-# # only copy the binary
-COPY --link --from=build /usr/local/bin/${TARGET_NAME} ${BIN_DIR}/${TARGET_NAME}
-RUN ln -s "${BIN_DIR}/${TARGET_NAME}" "${BIN_DIR}/ENTRYPOINT"
+# # copy the binaries
+COPY --from=build /usr/local/bin/ "${BIN_DIR}/"
 
 # # start the binary when running the container
 ENTRYPOINT [ "ENTRYPOINT" ]

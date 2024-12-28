@@ -1,12 +1,17 @@
 # syntax=docker/dockerfile:1
 # hadolint global ignore=DL3006
-FROM compile AS bin
+FROM compile AS base
 
-# # bin args
+# # base args
 ARG TARGET_NAME=redbean
 
-# # assimilate the binary
-RUN /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
+RUN <<EOT
+    # assimilate the binary
+    /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
+    rm -f /usr/local/bin/assimilate
+    # create a symbolic link to be used in the ENTRYPOINT of the scratch image
+    ln -s "/usr/local/bin/${TARGET_NAME}" /usr/local/bin/ENTRYPOINT
+EOT
 
 # # basically no-op image
 FROM scratch AS final
@@ -16,11 +21,10 @@ ARG BIN_DIR=/usr/local/bin
 ARG TARGET_NAME=redbean
 
 # # environment variables
-ENV LANG=C.UTF-8
 ENV PATH=${BIN_DIR}
 
-# # only copy binary
-COPY --link --from=bin /usr/local/bin/${TARGET_NAME} ${BIN_DIR}/ENTRYPOINT
+# # copy the binaries
+COPY --from=base /usr/local/bin/ "${BIN_DIR}/"
 USER 10000:10001
 
 # # start the binary when running the container
