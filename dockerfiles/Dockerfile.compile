@@ -13,7 +13,7 @@ ENV LANG=C.UTF-8
 # # change working directory
 WORKDIR /cosmopolitan
 
-# # build the binaries
+# # compile the binaries
 RUN --mount=type=cache,target=/cosmopolitan/.cosmocc <<EOT
     # create the output path and trim the extra slashes
     OUTPUT_PATH="$(echo o/${MODE}/${TARGET_PATH} | tr -s '/')"

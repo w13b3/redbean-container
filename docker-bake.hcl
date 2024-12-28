@@ -96,9 +96,9 @@ target "repo-local" {
   ]
 }
 
-target "binaries" {
+target "compile" {
   context    = "."
-  dockerfile = "dockerfiles/Dockerfile.binaries"
+  dockerfile = "dockerfiles/Dockerfile.compile"
   contexts = {
     repo = "target:repo"
   }
@@ -109,10 +109,10 @@ target "binaries" {
   }
 }
 
-target "binaries-local" {
-  inherits = ["binaries"]
+target "compile-local" {
+  inherits = ["compile"]
   tags = [
-    equal("", REPO_SHA) ? "binaries:latest" : "binaries:${SHORT_SHA}",
+    equal("", REPO_SHA) ? "compile:latest" : "compile:${SHORT_SHA}",
   ]
 }
 
@@ -123,7 +123,7 @@ target "scratch" {
   context    = "."
   dockerfile = "dockerfiles/Dockerfile.scratch"
   contexts = {
-    binaries = "target:binaries"
+    compile = "target:compile"
   }
   args = {
     BIN_DIR = "${BIN_DIR}",  # default "/usr/local/bin"
@@ -146,7 +146,7 @@ target "alpine" {
   contexts = {
     // alpine:3.19.1
     alpine   = "docker-image://${ALPINE}"
-    binaries = "target:binaries"
+    compile = "target:compile"
   }
   args = {
     BIN_DIR = "${BIN_DIR}",  # default "/usr/local/bin"
