@@ -80,7 +80,7 @@ target "_annotations" {
 
 target "repo" {
   context    = "."
-  dockerfile = "cwd://dockerfiles/Dockerfile.repo"
+  dockerfile = "dockerfiles/Dockerfile.repo"
   contexts = {
     debian = "docker-image://${DEBIAN}"
   }
@@ -98,7 +98,7 @@ target "repo-local" {
 
 target "compile" {
   context    = "."
-  dockerfile = "cwd://dockerfiles/Dockerfile.compile"
+  dockerfile = "dockerfiles/Dockerfile.compile"
   contexts = {
     repo = "target:repo"
   }
@@ -121,7 +121,7 @@ target "compile-local" {
 target "scratch" {
   inherits   = ["_annotations"]
   context    = "."
-  dockerfile = "cwd://dockerfiles/Dockerfile.scratch"
+  dockerfile = "dockerfiles/Dockerfile.scratch"
   contexts = {
     compile = "target:compile"
   }
@@ -142,7 +142,7 @@ target "scratch" {
 target "alpine" {
   inherits   = ["_annotations"]
   context    = "."
-  dockerfile = "cwd://dockerfiles/Dockerfile.alpine"
+  dockerfile = "dockerfiles/Dockerfile.alpine"
   contexts = {
     // alpine:3.19.1
     alpine   = "docker-image://${ALPINE}"
