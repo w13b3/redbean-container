@@ -56,6 +56,17 @@ REPO_SHA="42b34c26f8099658386fc867c49b0b8e59993415" docker buildx bake https://g
 When the build is successful an image with the tag `redbean:optlinux-42b34c` is available.  
 
 
+### Output the binary
+While using containerized software is convenient, there are instances where a standalone binary is preferred.  
+Retrieving the built binary is possible by setting `binary-output` as the [bake target].  
+
+The command below overrides the default target with `binary-output`
+```shell
+docker buildx bake https://github.com/w13b3/redbean-container.git binary-output
+```  
+After the build is completed successfully an `ouput` directory is created which contains the standalone binary.
+
+
 ## Build other binaries
 The [Cosmopolitan] repository offers other tools that can be built.  
 Using this project, another binary can be built by setting the `TARGET_PATH` variable.
@@ -70,6 +81,7 @@ Build other tools by setting the `TARGET_PATH` paths with:
 - [/tool/viz/life](https://github.com/jart/cosmopolitan/blob/master/tool/viz/life.c)  
 - [/tool/build/pledge](https://github.com/jart/cosmopolitan/blob/master/tool/build/pledge.c)
 - [/third_party/python/python3](https://github.com/jart/cosmopolitan/blob/master/third_party/python/python3.c)  
+ 
 
 
 ## Motivation
@@ -86,11 +98,7 @@ I wanted to distribute images.
 And I also wanted to use the newest available features in redbean.  
 So I decided to combine the learning goals into this project.  
 
-
-[02-Nov-2022]: https://github.com/jart/cosmopolitan/commit/5e60e5ad107f0b32d16263ef02dc5090861dc664
-[really]: https://github.com/jart/cosmopolitan/commit/d3ff48c63f89060844dcfa80f0526b2534dfd56f
-[cool]: https://github.com/jart/cosmopolitan/commit/d50064a779625c4f0f3c4e972b821c2f696cfbad
-[features]: https://github.com/jart/cosmopolitan/commit/d0d027810a87d091f1f7ced1351e59edf05bd2eb
+> On [17-Aug-2024] redbean v3.0.0 has been released
 
 
 ## Acknowledgements
@@ -124,3 +132,9 @@ Please adhere to the licenses of the other included or used software.
 [redbean]: https://redbean.dev/
 [redbean.c]: https://github.com/jart/cosmopolitan/blob/master/tool/net/redbean.c
 [kissgyorgy]: https://github.com/kissgyorgy/redbean-docker
+[02-Nov-2022]: https://github.com/jart/cosmopolitan/commit/5e60e5ad107f0b32d16263ef02dc5090861dc664
+[17-Aug-2024]: https://github.com/jart/cosmopolitan/commit/ca2c30c977be907fec10509cefca15ead314812a
+[really]: https://github.com/jart/cosmopolitan/commit/d3ff48c63f89060844dcfa80f0526b2534dfd56f
+[cool]: https://github.com/jart/cosmopolitan/commit/d50064a779625c4f0f3c4e972b821c2f696cfbad
+[features]: https://github.com/jart/cosmopolitan/commit/d0d027810a87d091f1f7ced1351e59edf05bd2eb
+[bake target]: https://docs.docker.com/build/bake/targets/

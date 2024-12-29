@@ -44,6 +44,11 @@ variable "DEBIAN" {
   default = "debian@sha256:b877a1a3fdf02469440f1768cf69c9771338a875b7add5e80c45b756c92ac20a"
 }
 
+# # output arguments
+variable "OUTPUT_DIR" {
+  default = "output"
+}
+
 
 # # # user-defined functions
 
@@ -58,6 +63,7 @@ function "filename" {
   result = element(split("/", given), length(split("/", given)) - 1)
 }
 
+
 # # # inheritable targets
 
 target "_annotations" {
@@ -65,7 +71,6 @@ target "_annotations" {
   annotations = [
     "org.opencontainers.image.created=${timestamp()}",
     "org.opencontainers.image.authors=${REGISTRY_OWNER}",
-    "org.opencontainers.image.url=http://github.com/${REGISTRY_OWNER}",
     "org.opencontainers.image.revision=${REPO_SHA}",
     "org.opencontainers.image.vendor=Cosmopolitan https://github.com/jart/cosmopolitan",
     "org.opencontainers.image.licenses=ISC",
@@ -74,6 +79,14 @@ target "_annotations" {
   ]
 }
 
+target "_labels" {
+  labels = {
+    "build.date" = timestamp(),
+    "cosmopolitan.commit" = equal("", REPO_SHA) ? "HEAD" : REPO_SHA,
+    "cosmopolitan.mode" = MODE,
+    "cosmopolitan.target" = TARGET_PATH
+  }
+}
 
 # # # targets
 # # sub step images
@@ -85,12 +98,12 @@ target "repo" {
     debian = "docker-image://${DEBIAN}"
   }
   args = {
-    REPO_SHA = "${REPO_SHA}"  # default ""
+    REPO_SHA = REPO_SHA  # default ""
   }
 }
 
 target "repo-local" {
-  inherits = ["repo"]
+  inherits = ["repo", "_labels"]
   tags = [
     equal("", REPO_SHA) ? "repo:latest" : "repo:${SHORT_SHA}",
   ]
@@ -103,14 +116,14 @@ target "compile" {
     repo = "target:repo"
   }
   args = {
-    MODE = "${MODE}",  # default "optlinux"
-    TARGET_NAME = "${TARGET_NAME}",  # default redbean
-    TARGET_PATH = "${TARGET_PATH}",  # default "/tool/net/redbean"
+    MODE = MODE,  # default "optlinux"
+    TARGET_NAME = TARGET_NAME,  # default redbean
+    TARGET_PATH = TARGET_PATH,  # default "/tool/net/redbean"
   }
 }
 
 target "compile-local" {
-  inherits = ["compile"]
+  inherits = ["compile", "_labels"]
   tags = [
     equal("", REPO_SHA) ? "compile:latest" : "compile:${SHORT_SHA}",
   ]
@@ -119,47 +132,44 @@ target "compile-local" {
 # # final images
 
 target "scratch" {
-  inherits   = ["_annotations"]
+  inherits   = ["_annotations", "_labels"]
   context    = "."
   dockerfile = "dockerfiles/Dockerfile.scratch"
   contexts = {
     compile = "target:compile"
   }
   args = {
-    BIN_DIR = "${BIN_DIR}",  # default "/usr/local/bin"
-    TARGET_NAME = "${TARGET_NAME}",  # default redbean
+    BIN_DIR = BIN_DIR,  # default "/usr/local/bin"
+    TARGET_NAME = TARGET_NAME,  # default redbean
   }
-  tags = concat([
+  tags = equal("", REPO_SHA) ? [
     "${TARGET_NAME}:${MODE}",
     "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}",
-    # if available; also add tags with short sha 
-    ], equal("", REPO_SHA) ? [] : [
+  ] : [
     "${TARGET_NAME}:${MODE}-${SHORT_SHA}",
     "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-${SHORT_SHA}",
-  ])
+  ]
 }
 
 target "alpine" {
-  inherits   = ["_annotations"]
+  inherits   = ["_annotations", "_labels"]
   context    = "."
   dockerfile = "dockerfiles/Dockerfile.alpine"
   contexts = {
-    // alpine:3.19.1
-    alpine   = "docker-image://${ALPINE}"
+    alpine  = "docker-image://${ALPINE}"
     compile = "target:compile"
   }
   args = {
-    BIN_DIR = "${BIN_DIR}",  # default "/usr/local/bin"
-    TARGET_NAME = "${TARGET_NAME}",  # default redbean
+    BIN_DIR = BIN_DIR,  # default "/usr/local/bin"
+    TARGET_NAME = TARGET_NAME,  # default redbean
   }
-  tags = concat([
+  tags = equal("", REPO_SHA) ? [
     "${TARGET_NAME}:${MODE}-alpine",
     "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine",
-    # if available; also add tags with short sha 
-    ], equal("", REPO_SHA) ? [] : [
+  ] : [
     "${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
     "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
-  ])
+  ]
 }
 
 # # output files
@@ -172,7 +182,11 @@ target "repo-output" {
     FROM scratch
     COPY --from=context /cosmopolitan /
   EOT
-  output = ["type=local,dest=./output/cosmopolitan"]
+  output = equal("", REPO_SHA) ? [
+    "type=local,dest=${OUTPUT_DIR}/cosmopolitan"
+  ] : [
+    "type=local,dest=${OUTPUT_DIR}-${SHORT_SHA}/cosmopolitan"
+  ]
 }
 
 target "binary-output" {
@@ -180,12 +194,16 @@ target "binary-output" {
     context = "target:compile"
   }
   args = {
-    TARGET_NAME = "${TARGET_NAME}",  # default redbean
+    TARGET_NAME = TARGET_NAME,  # default redbean
   }
   dockerfile-inline = <<EOT
     FROM scratch
     ARG TARGET_NAME
     COPY --from=context "/usr/local/bin/${TARGET_NAME}" /
   EOT
-  output = ["type=local,dest=./output"]
+  output = equal("", REPO_SHA) ? [
+    "type=local,dest=${OUTPUT_DIR}"
+  ] : [
+    "type=local,dest=${OUTPUT_DIR}-${SHORT_SHA}"
+  ]
 }
