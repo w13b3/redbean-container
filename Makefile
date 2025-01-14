@@ -5,8 +5,8 @@ SHELL := /bin/sh
 
 # # # Default variables
 
-# # if REPO_SHA is given, the Dockerfile will reset the git repo to that commit
-REPO_SHA ?=
+# # if COMMIT is given, the Dockerfile will reset the git repo to that commit
+COMMIT ?= HEAD
 DEFAULT_MODE ?= optlinux
 BUILD_MODES ?= optlinux tinylinux asan rel
 REGISTRY_OWNER ?= local
@@ -42,7 +42,7 @@ ifeq ($(origin MODE), undefined)
 	$(MAKE) --directory=$(CURDIR) build MODE=$(DEFAULT_MODE)
 else
 	$(info Building in '$(MODE)' mode)
-	DOCKER_BUILDKIT=1 MODE=$(MODE) REPO_SHA=$(REPO_SHA) \
+	DOCKER_BUILDKIT=1 MODE=$(MODE) COMMIT=$(COMMIT) \
 		docker buildx bake --load --progress=plain scratch
 endif
 
@@ -56,5 +56,5 @@ build-all-%:
 # # Downloads a copy of the repo in a debian container
 .PHONY: build-repo
 build-repo:
-	DOCKER_BUILDKIT=1 REPO_SHA=$(REPO_SHA) \
-		docker buildx bake --load --progress=plain repo-local
+	DOCKER_BUILDKIT=1 COMMIT=$(COMMIT) \
+		docker buildx bake --load --progress=plain debian-repository
