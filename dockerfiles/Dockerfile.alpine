@@ -1,35 +1,97 @@
 # syntax=docker/dockerfile:1
-# hadolint global ignore=DL3006
-FROM alpine AS build
+# -*- mode: dockerfile -*-
 
-# # build args
-ARG TARGET_NAME=redbean
-ARG BIN_DIR=/usr/local/bin
+ARG ALPINE=docker.io/alpine:latest
 
-# # environment variables
+# hadolint ignore=DL3006
+FROM "${ALPINE}" AS repository
+
+ARG COMMIT="HEAD"
+ARG GIT_URL="https://github.com/jart/cosmopolitan.git"
+ARG PACKAGES="\
+    git \
+    ca-certificates \
+    curl \
+    make \
+    unzip"
+
 ENV LANG=C.UTF-8
 
-# # copy files from the compile context
-COPY --from=compile /usr/local/bin/ /usr/local/bin/
+# hadolint ignore=DL3018
+RUN --mount=type=cache,target="/var/cache/apk",sharing=locked \
+    set -xe \
+    && apk add --cache-dir /var/cache/apk ${PACKAGES}
 
-# # assimilate redbean
-RUN <<EOT
-    /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
-    rm -f /usr/local/bin/assimilate
-    ln -s "${BIN_DIR}/${TARGET_NAME}" "${BIN_DIR}/ENTRYPOINT"
-EOT
+WORKDIR /cosmopolitan
 
-# # minimal image
-FROM alpine AS final
+# clone the repository into /cosmopolitan
+RUN set -xe \
+    && git init --quiet \
+    && git remote add --tags origin ${GIT_URL} \
+    && git fetch --quiet --depth 1 origin ${COMMIT} \
+    && git checkout --quiet FETCH_HEAD
 
-# # final args
-ARG BIN_DIR=/usr/local/bin
+# # change the Makefile to only download cosmocc.zip
+# # this is a hacky-way to run the line `DOWNLOAD := $(shell build/download-cosmocc.sh $(COSMOCC) 3.x.x <SHA>)`
+# # unzip is needed to unpack the downloaded cosmocc.zip to .cosmocc
+RUN --mount=type=cache,target="/cosmopolitan/.cosmocc",sharing=locked \
+    set -xe \
+    && cp -f Makefile Makefile.tmp \
+    && echo "dl-cosmocc:" >> Makefile.tmp \
+    && make --file Makefile.tmp dl-cosmocc \
+    && rm -f Makefile.tmp
 
-# # environment variables
-ENV PATH="${BIN_DIR}:${PATH}"
 
-# # copy the binaries
-COPY --from=build /usr/local/bin/ "${BIN_DIR}/"
+FROM repository AS compile
 
-# # start the binary when running the container
+ARG MODE="optlinux"
+ARG TARGET_PATH="/tool/net/redbean"
+
+# hadolint ignore=DL4006
+RUN --mount=type=cache,target="/cosmopolitan/.cosmocc" \
+    set -xe \
+    && OUTPUT_PATH="$(echo o/${MODE}/${TARGET_PATH} | tr -s '/')" \
+    && make -i -j -O MODE="${MODE}" "${OUTPUT_PATH}" \
+    && [ -f "${OUTPUT_PATH}" ] || make -i -j -O MODE="${MODE}" "${OUTPUT_PATH}.com" \
+    && mv -f "${OUTPUT_PATH}.com" "${OUTPUT_PATH}" || true \
+    && [ -f "${OUTPUT_PATH}" ] \
+    && install -D "${OUTPUT_PATH}" "${TARGET_PATH}"
+
+
+FROM "${ALPINE}" AS clean
+
+ARG TARGET_PATH="/tool/net/redbean"
+ARG UID=1000
+ARG GID=1000
+ARG USER="cosmopolitan"
+ARG GROUP="cosmopolitan"
+
+ENV PATH="/usr/local/bin:${PATH}"
+
+COPY --from=compile --chown="${UID}:${GID}" "${TARGET_PATH}" "/usr/local/bin/"
+COPY --from=repository --chmod=444 /cosmopolitan/[L]ICENSE /usr/share/licences/cosmopolitan/
+
+RUN --network=none \
+    set -xe \
+    && TARGET_NAME="$(basename ${TARGET_PATH})" \
+    && ln -s "/usr/local/bin/${TARGET_NAME}" /usr/local/bin/ENTRYPOINT \
+    && addgroup -g "${GID}" "${GROUP}" \
+    && adduser \
+        -h "/home/${USER}" \
+        -G "${GROUP}" \
+        -D \
+        -u "${UID}" \
+        "${USER}"
+
+
+FROM clean AS final
+
+ARG UID=1000
+ARG GID=1000
+ARG USER="cosmopolitan"
+
+USER "${UID}:${GID}"
+
+WORKDIR "/home/${USER}"
+
 ENTRYPOINT [ "ENTRYPOINT" ]

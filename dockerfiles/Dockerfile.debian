@@ -16,8 +16,6 @@ ARG PACKAGES="\
 
 ENV LANG=C.UTF-8
 
-ADD --chmod=776 "https://cosmo.zip/pub/cosmos/bin/assimilate" /usr/local/bin/assimilate
-
 RUN --mount=type=cache,target="/var/cache",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
     set -xe \
@@ -60,7 +58,7 @@ RUN --mount=type=cache,target="/cosmopolitan/.cosmocc" \
     && install -D "${OUTPUT_PATH}" "${TARGET_PATH}"
 
 
-FROM compile AS clean
+FROM "${DEBIAN}" AS clean
 
 ARG TARGET_PATH="/tool/net/redbean"
 ARG UID=1000
@@ -68,31 +66,28 @@ ARG GID=1000
 ARG USER="cosmopolitan"
 ARG GROUP="cosmopolitan"
 
-COPY --from=compile "${TARGET_PATH}" "/usr/local/bin/"
+ENV PATH="/usr/local/bin:${PATH}"
+
+COPY --from=compile --chown="${UID}:${GID}" "${TARGET_PATH}" "/usr/local/bin/"
+COPY --from=repository --chmod=444 /cosmopolitan/[L]ICENSE /usr/share/licences/cosmopolitan/
 
 RUN set -xe \
     && TARGET_NAME="$(basename ${TARGET_PATH})" \
     && ln -s "/usr/local/bin/${TARGET_NAME}" /usr/local/bin/ENTRYPOINT \
-	&& /usr/local/bin/assimilate -f "/usr/local/bin/${TARGET_NAME}"
+	&& groupadd --gid "${GID}" "${GROUP}" \
+	&& useradd \
+	    --home-dir "/home/${USER}" \
+	    --create-home \
+	    --gid "${GID}" \
+	    --uid "${UID}" \
+	    "${USER}"
 
-RUN --network=none \
-    set -xe \
-	&& echo "${GROUP}:x:${GID}:" > /etc/group \
-	&& echo "${USER}:x:${UID}:${GID}::/home/${USER}:/bin/false" > /etc/passwd
 
-
-FROM scratch AS final
+FROM clean AS final
 
 ARG UID=1000
 ARG GID=1000
 ARG USER="cosmopolitan"
-
-ENV PATH="/usr/local/bin:${PATH}"
-
-COPY --from=clean --chmod=444 /etc/group /etc/group
-COPY --from=clean --chmod=444 /etc/passwd /etc/passwd
-COPY --from=clean --chown="${UID}:${GID}" /usr/local/bin /usr/local/bin
-COPY --from=repository --chmod=444 /cosmopolitan/[L]ICENSE /usr/share/licences/cosmopolitan/
 
 USER "${UID}:${GID}"
 
