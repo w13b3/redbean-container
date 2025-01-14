@@ -49,9 +49,9 @@ Using `MODE=opt` an image with the tag `redbean:opt` is created after a successf
 It is possible to build an image that includes a previous version of redbean.  
 To do this, a full SHA of the Cosmopolitan commit is needed.  
 
-The following command overrides the `REPO_SHA` variable with a full SHA to build an image containing redbean [v2.0.1].  
+The following command overrides the `COMMIT` variable with a full SHA to build an image containing redbean [v2.0.1].  
 ```shell
-REPO_SHA="42b34c26f8099658386fc867c49b0b8e59993415" docker buildx bake https://github.com/w13b3/redbean-container.git
+COMMIT="42b34c26f8099658386fc867c49b0b8e59993415" docker buildx bake https://github.com/w13b3/redbean-container.git
 ```
 When the build is successful an image with the tag `redbean:optlinux-42b34c` is available.  
 
@@ -82,6 +82,17 @@ Build other tools by setting the `TARGET_PATH` paths with:
 - [/tool/build/pledge](https://github.com/jart/cosmopolitan/blob/master/tool/build/pledge.c)
 - [/third_party/python/python3](https://github.com/jart/cosmopolitan/blob/master/third_party/python/python3.c)  
  
+
+## Build images without Docker Bake 
+It can happen Docker Bake is not installed on your system.  
+Still, this project lets you build an image with just [Docker Build].  
+
+This command lets you build an image containing `redbean` created using `tinylinux` mode.  
+```shell
+docker build --file dockerfiles/Dockerfile.scratch --build-arg MODE=tinylinux --tag redbean:tinylinux https://github.com/w13b3/redbean-container.git
+```
+> Using [`podman`][podman] or [`buildah`][buildah]?  
+> With this method you can replace [`docker`][docker] with either of those programs to build an image.
 
 
 ## Motivation
@@ -138,3 +149,7 @@ Please adhere to the licenses of the other included or used software.
 [cool]: https://github.com/jart/cosmopolitan/commit/d50064a779625c4f0f3c4e972b821c2f696cfbad
 [features]: https://github.com/jart/cosmopolitan/commit/d0d027810a87d091f1f7ced1351e59edf05bd2eb
 [bake target]: https://docs.docker.com/build/bake/targets/
+[docker]: https://www.docker.com/
+[podman]: https://podman.io/
+[buildah]: https://buildah.io/
+[Docker Build]: https://docs.docker.com/reference/cli/docker/buildx/build/
