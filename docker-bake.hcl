@@ -1,209 +1,318 @@
-# docker-bake.hcl
+// docker-bake.hcl
+// -*- mode: hcl -*-
 
-# # # groups
 
 group "default" {
   targets = ["scratch"]
 }
 
-
-# # # variables
-# # docs.docker.com/build/bake/reference/#variable
-# # set an environment variable to change the default variables
-
-# # tag variables
-variable "REGISTRY_OWNER" {
-  default = "local"
-}
-variable "REPO_SHA" {
-  default = ""
-}
-variable "SHORT_SHA" {
-  default = "${shortSHA(REPO_SHA)}"
+group "all" {
+  targets = [
+    "scratch",
+    "alpine",
+    "debian"
+  ]
 }
 
-# # build arguments
-variable "BIN_DIR" {
-  default = "/usr/local/bin"
+variable "ALPINE" {
+  default = "docker.io/alpine:latest"
 }
-variable "TARGET_PATH" {
-    default = "/tool/net/redbean"
+variable "DEBIAN" {
+  default = "docker.io/debian:stable-slim"
 }
-variable "TARGET_NAME" {
-    default = "${filename(TARGET_PATH)}"
+
+variable "COMMIT" {
+  default = "HEAD"
+}
+variable "GIT_URL" {
+  default = "https://github.com/jart/cosmopolitan.git"
+}
+variable "PACKAGES" {
+  default = join(" ", [
+    "git",
+    "ca-certificates",
+    "curl",
+    "make",
+    "unzip",
+  ])
 }
 variable "MODE" {
   default = "optlinux"
 }
-variable "ALPINE" {
-  # alpine:3.21.0
-  default = "alpine@sha256:21dc6063fd678b478f57c0e13f47560d0ea4eeba26dfc947b2a4f81f686b9f45"
+variable "TARGET_NAME" {}
+variable "TARGET_PATH" {
+  default = "/tool/net/redbean"
 }
-variable "DEBIAN" {
-  # debian:bookworm-20241223-slim
-  default = "debian@sha256:b877a1a3fdf02469440f1768cf69c9771338a875b7add5e80c45b756c92ac20a"
+variable UID {
+  default = "1000"
 }
-
-# # output arguments
+variable GID {
+  default = "1000"
+}
+variable USER {
+  default = "cosmopolitan"
+}
+variable GROUP {
+  default = "cosmopolitan"
+}
+variable "REGISTRY_OWNER" {
+  default = "local"
+}
 variable "OUTPUT_DIR" {
   default = "output"
 }
 
 
-# # # user-defined functions
+// inheritable targets
 
-function "shortSHA" {
-  # trim the given string, keep the first 6 characters
-  params = [given]
-  result = substr(given, 0, 6)
+target "_labels" {
+  labels = {
+    "build.date"                           = timestamp(),
+    "cosmopolitan.mode"                    = MODE,
+    "cosmopolitan.target"                  = TARGET_PATH,
+    "org.opencontainers.image.created"     = timestamp(),
+    "org.opencontainers.image.authors"     = REGISTRY_OWNER,
+    "org.opencontainers.image.revision"    = COMMIT,
+    "org.opencontainers.image.vendor"      = "Cosmopolitan https://github.com/jart/cosmopolitan",
+    "org.opencontainers.image.licenses"    = "ISC",
+    "org.opencontainers.image.title"       = basename(TARGET_PATH),
+    "org.opencontainers.image.description" = "build-once run-anywhere",
+  }
 }
-function "filename" {
-  # extracts the final component of a given file path
+
+
+target "scratch" {
+  inherits = ["_labels", "scratch-final"]
+  target   = "final"
+  labels = {
+    "org.opencontainers.image.title"     = basename(TARGET_PATH),
+    "org.opencontainers.image.base.name" = "scratch",
+  }
+  tags = [createTag(notequal(TARGET_NAME, "") ? TARGET_NAME : basename(TARGET_PATH))]
+}
+// scratch sub targets
+target "scratch-repository" {
+  dockerfile = "dockerfiles/Dockerfile.scratch"
+  target     = "repository"
+  args = {
+    DEBIAN   = DEBIAN,
+    COMMIT   = COMMIT,
+    GIT_URL  = GIT_URL,
+    PACKAGES = PACKAGES,
+  }
+  tags = [createTag("scratch-repository")]
+}
+target "scratch-compile" {
+  dockerfile = "dockerfiles/Dockerfile.scratch"
+  target     = "compile"
+  contexts = {
+    repository = "target:scratch-repository"
+  }
+  args = {
+    MODE        = MODE,
+    TARGET_PATH = TARGET_PATH,
+  }
+  tags = [createTag("scratch-compile")]
+}
+target "scratch-clean" {
+  dockerfile = "dockerfiles/Dockerfile.scratch"
+  target     = "clean"
+  contexts = {
+    compile = "target:scratch-compile"
+  }
+  args = {
+    TARGET_PATH = TARGET_PATH,
+    UID         = UID,
+    GID         = GID,
+    USER        = USER,
+    GROUP       = GROUP,
+  }
+  tags = [createTag("scratch-clean")]
+}
+target "scratch-final" {
+  dockerfile = "dockerfiles/Dockerfile.scratch"
+  target     = "final"
+  contexts = {
+    clean = "target:scratch-clean"
+  }
+  args = {
+    UID  = UID,
+    GID  = GID,
+    USER = USER,
+  }
+  tags = [createTag("scratch-final")]
+}
+
+
+target "debian" {
+  inherits = ["_labels", "debian-final"]
+  target   = "final"
+  labels = {
+    "org.opencontainers.image.title"     = "${basename(TARGET_PATH)}-debian",
+    "org.opencontainers.image.base.name" = DEBIAN,
+  }
+  tags = [createTag("${notequal(TARGET_NAME, "") ? TARGET_NAME : basename(TARGET_PATH)}-debian")]
+}
+// debian sub targets
+target "debian-repository" {
+  dockerfile = "dockerfiles/Dockerfile.debian"
+  target     = "repository"
+  args = {
+    DEBIAN   = DEBIAN,
+    COMMIT   = COMMIT,
+    GIT_URL  = GIT_URL,
+    PACKAGES = PACKAGES,
+  }
+  tags = [createTag("debian-repository")]
+}
+target "debian-compile" {
+  dockerfile = "dockerfiles/Dockerfile.debian"
+  target     = "compile"
+  contexts = {
+    repository = "target:debian-repository"
+  }
+  args = {
+    MODE        = MODE,
+    TARGET_PATH = TARGET_PATH,
+  }
+  tags = [createTag("debian-compile")]
+}
+target "debian-clean" {
+  dockerfile = "dockerfiles/Dockerfile.debian"
+  target     = "clean"
+  contexts = {
+    compile = "target:debian-compile"
+  }
+  args = {
+    TARGET_PATH = TARGET_PATH,
+    UID         = UID,
+    GID         = GID,
+    USER        = USER,
+    GROUP       = GROUP,
+  }
+  tags = [createTag("debian-clean")]
+}
+target "debian-final" {
+  dockerfile = "dockerfiles/Dockerfile.debian"
+  target     = "final"
+  contexts = {
+    clean = "target:debian-clean"
+  }
+  args = {
+    UID  = UID,
+    GID  = GID,
+    USER = USER,
+  }
+  tags = [createTag("debian-final")]
+}
+
+
+target "alpine" {
+  inherits = ["_labels", "alpine-final"]
+  target   = "final"
+  labels = {
+    "org.opencontainers.image.title"     = "${basename(TARGET_PATH)}-alpine",
+    "org.opencontainers.image.base.name" = ALPINE,
+  }
+  tags = [createTag("${notequal(TARGET_NAME, "") ? TARGET_NAME : basename(TARGET_PATH)}-alpine")]
+}
+// alpine sub targets
+target "alpine-repository" {
+  dockerfile = "dockerfiles/Dockerfile.alpine"
+  target     = "repository"
+  args = {
+    ALPINE   = ALPINE,
+    COMMIT   = COMMIT,
+    GIT_URL  = GIT_URL,
+    PACKAGES = PACKAGES,
+  }
+  tags = [createTag("alpine-repository")]
+}
+target "alpine-compile" {
+  dockerfile = "dockerfiles/Dockerfile.alpine"
+  target     = "compile"
+  contexts = {
+    repository = "target:alpine-repository"
+  }
+  args = {
+    MODE        = MODE,
+    TARGET_PATH = TARGET_PATH,
+  }
+  tags = [createTag("alpine-compile")]
+}
+target "alpine-clean" {
+  dockerfile = "dockerfiles/Dockerfile.alpine"
+  target     = "clean"
+  contexts = {
+    compile = "target:alpine-compile"
+  }
+  args = {
+    TARGET_PATH = TARGET_PATH,
+    UID         = UID,
+    GID         = GID,
+    USER        = USER,
+    GROUP       = GROUP,
+  }
+  tags = [createTag("alpine-clean")]
+}
+target "alpine-final" {
+  dockerfile = "dockerfiles/Dockerfile.alpine"
+  target     = "final"
+  contexts = {
+    clean = "target:alpine-clean"
+  }
+  args = {
+    UID  = UID,
+    GID  = GID,
+    USER = USER,
+  }
+  tags = [createTag("alpine-final")]
+}
+
+
+target "binary-output" {
+  output = ["type=local,dest=${OUTPUT_DIR}"]
+  contexts = {
+    compile = "target:alpine-compile"
+  }
+  args = {
+    TARGET_PATH = TARGET_PATH
+  }
+  dockerfile-inline = <<-EOT
+    FROM compile AS ctx
+    FROM scratch
+    ARG TARGET_PATH
+    COPY --from=ctx "$${TARGET_PATH}" /
+  EOT
+}
+target "repo-output" {
+  output = ["type=local,dest=${OUTPUT_DIR}"]
+  contexts = {
+    repository = "target:alpine-repository"
+  }
+  dockerfile-inline = <<EOT
+    FROM repository as ctx
+    FROM scratch
+    COPY --from=ctx /cosmopolitan /
+  EOT
+}
+
+
+// user-defined functions
+function "basename" {
+  // extracts the final component of a given file path
   params = [given]
   result = element(split("/", given), length(split("/", given)) - 1)
 }
 
-
-# # # inheritable targets
-
-target "_annotations" {
-  # https://specs.opencontainers.org/image-spec/annotations/
-  annotations = [
-    "org.opencontainers.image.created=${timestamp()}",
-    "org.opencontainers.image.authors=${REGISTRY_OWNER}",
-    "org.opencontainers.image.revision=${REPO_SHA}",
-    "org.opencontainers.image.vendor=Cosmopolitan https://github.com/jart/cosmopolitan",
-    "org.opencontainers.image.licenses=ISC",
-    "org.opencontainers.image.title=${TARGET_NAME}",
-    "org.opencontainers.image.description=build-once run-anywhere",
-  ]
+function "shortSHA" {
+  // trim the given string, keep the first 6 characters
+  params = [given]
+  result = substr(given, 0, 6)
 }
 
-target "_labels" {
-  labels = {
-    "build.date" = timestamp(),
-    "cosmopolitan.commit" = equal("", REPO_SHA) ? "HEAD" : REPO_SHA,
-    "cosmopolitan.mode" = MODE,
-    "cosmopolitan.target" = TARGET_PATH
-  }
-}
-
-# # # targets
-# # sub step images
-
-target "repo" {
-  context    = "."
-  dockerfile = "dockerfiles/Dockerfile.repo"
-  contexts = {
-    debian = "docker-image://${DEBIAN}"
-  }
-  args = {
-    REPO_SHA = REPO_SHA  # default ""
-  }
-}
-
-target "repo-local" {
-  inherits = ["repo", "_labels"]
-  tags = [
-    equal("", REPO_SHA) ? "repo:latest" : "repo:${SHORT_SHA}",
-  ]
-}
-
-target "compile" {
-  context    = "."
-  dockerfile = "dockerfiles/Dockerfile.compile"
-  contexts = {
-    repo = "target:repo"
-  }
-  args = {
-    MODE = MODE,  # default "optlinux"
-    TARGET_NAME = TARGET_NAME,  # default redbean
-    TARGET_PATH = TARGET_PATH,  # default "/tool/net/redbean"
-  }
-}
-
-target "compile-local" {
-  inherits = ["compile", "_labels"]
-  tags = [
-    equal("", REPO_SHA) ? "compile:latest" : "compile:${SHORT_SHA}",
-  ]
-}
-
-# # final images
-
-target "scratch" {
-  inherits   = ["_annotations", "_labels"]
-  context    = "."
-  dockerfile = "dockerfiles/Dockerfile.scratch"
-  contexts = {
-    compile = "target:compile"
-  }
-  args = {
-    BIN_DIR = BIN_DIR,  # default "/usr/local/bin"
-    TARGET_NAME = TARGET_NAME,  # default redbean
-  }
-  tags = equal("", REPO_SHA) ? [
-    "${TARGET_NAME}:${MODE}",
-    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}",
-  ] : [
-    "${TARGET_NAME}:${MODE}-${SHORT_SHA}",
-    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-${SHORT_SHA}",
-  ]
-}
-
-target "alpine" {
-  inherits   = ["_annotations", "_labels"]
-  context    = "."
-  dockerfile = "dockerfiles/Dockerfile.alpine"
-  contexts = {
-    alpine  = "docker-image://${ALPINE}"
-    compile = "target:compile"
-  }
-  args = {
-    BIN_DIR = BIN_DIR,  # default "/usr/local/bin"
-    TARGET_NAME = TARGET_NAME,  # default redbean
-  }
-  tags = equal("", REPO_SHA) ? [
-    "${TARGET_NAME}:${MODE}-alpine",
-    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine",
-  ] : [
-    "${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
-    "ghcr.io/${REGISTRY_OWNER}/${TARGET_NAME}:${MODE}-alpine-${SHORT_SHA}",
-  ]
-}
-
-# # output files
-
-target "repo-output" {
-  contexts = {
-    context = "target:repo"
-  }
-  dockerfile-inline = <<EOT
-    FROM scratch
-    COPY --from=context /cosmopolitan /
-  EOT
-  output = equal("", REPO_SHA) ? [
-    "type=local,dest=${OUTPUT_DIR}/cosmopolitan"
-  ] : [
-    "type=local,dest=${OUTPUT_DIR}-${SHORT_SHA}/cosmopolitan"
-  ]
-}
-
-target "binary-output" {
-  contexts = {
-    context = "target:compile"
-  }
-  args = {
-    TARGET_NAME = TARGET_NAME,  # default redbean
-  }
-  dockerfile-inline = <<EOT
-    FROM scratch
-    ARG TARGET_NAME
-    COPY --from=context "/usr/local/bin/${TARGET_NAME}" /
-  EOT
-  output = equal("", REPO_SHA) ? [
-    "type=local,dest=${OUTPUT_DIR}"
-  ] : [
-    "type=local,dest=${OUTPUT_DIR}-${SHORT_SHA}"
-  ]
+function "createTag" {
+  // create tag: commitSHA -> [name]:12ab34 or HEAD -> [name]:MODE
+  params = [name]
+  result = join(":", [name, notequal("HEAD", COMMIT) ? "${MODE}-${shortSHA(COMMIT)}" : MODE])
 }
